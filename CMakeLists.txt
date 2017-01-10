@@ -11,26 +11,25 @@ add_subdirectory(deps/glad)
 find_package(Freetype REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(OpenGL REQUIRED)
+
 include_directories(
     include
     ${FREETYPE_INCLUDE_DIRS}
-    ${GLFW_INCLUDE_DIRS}
     ${GLAD_INCLUDE_DIRS}
-    ${OPENGL_INCLUDE_DIR}
     )
 
 add_executable(
     ${PROJECT_NAME}
     src/main.cpp
+    src/shader.cpp
     src/text.cpp
     )
 
 target_link_libraries(
     ${PROJECT_NAME}
-    glfw
-    glad
-    ${OPENGL_gl_LIBRARIES}
-    ${GLFW_LIBRARIES}
     ${FREETYPE_LIBRARIES}
+    glad
+    glfw
+    ${OPENGL_gl_LIBRARIES}
     dl
     )
