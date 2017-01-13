@@ -1,7 +1,7 @@
 #include "shader.hpp"
 #include <cstdio>
 
-GLuint make_shader(GLenum type, const char* path)
+GLuint ShaderManager::make_shader(GLenum type, const char* path)
 {
     FILE* file = fopen(path, "rb");
     if (file == nullptr) {
@@ -34,7 +34,7 @@ GLuint make_shader(GLenum type, const char* path)
     return shader;
 }
 
-GLuint make_program(const std::vector<GLuint>& parts)
+GLuint ShaderManager::make_program(const std::vector<GLuint>& parts)
 {
     GLuint program = glCreateProgram();
 

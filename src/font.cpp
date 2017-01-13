@@ -1,13 +1,10 @@
-#include "shader.hpp"
-#include "text.hpp"
+#include "font.hpp"
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
 #include <vector>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <ft2build.h>
-#include FT_FREETYPE_H
 
 struct Glyph
 {
@@ -15,58 +12,50 @@ struct Glyph
     glm::vec2 position;
 };
 
-struct TextRenderingTechnique
+FontManager::FontManager(ShaderManager* sm)
+  : sm_ {sm}
 {
-    GLuint program;
-    GLuint vao;
-    GLuint vbo;
-    GLint loc_transform;
-    GLint loc_color;
-    GLint loc_atlas_tex;
-    GLint loc_glyph_bound;
-    GLint loc_glyph_uv;
-} tech;
+}
 
-bool init_text_rendering()
+bool FontManager::init()
 {
-    GLuint vert = make_shader(GL_VERTEX_SHADER, "shaders/text.vert");
-    GLuint geom = make_shader(GL_GEOMETRY_SHADER, "shaders/text.geom");
-    GLuint frag = make_shader(GL_FRAGMENT_SHADER, "shaders/text.frag");
-
-    tech.program = make_program({vert, geom, frag}); 
+    GLuint vert = sm_->make_shader(GL_VERTEX_SHADER, "shaders/text.vert");
+    GLuint geom = sm_->make_shader(GL_GEOMETRY_SHADER, "shaders/text.geom");
+    GLuint frag = sm_->make_shader(GL_FRAGMENT_SHADER, "shaders/text.frag");
+    program_ = sm_->make_program({vert, geom, frag}); 
 
     glDeleteShader(vert);
     glDeleteShader(geom);
     glDeleteShader(frag);
 
-    tech.loc_transform = glGetUniformLocation(tech.program, "transform");
-    tech.loc_color = glGetUniformLocation(tech.program, "color");
-    tech.loc_atlas_tex = glGetUniformLocation(tech.program, "atlas_tex");
-    tech.loc_glyph_bound = glGetUniformLocation(tech.program, "glyph_bound");
-    tech.loc_glyph_uv = glGetUniformLocation(tech.program, "glyph_uv");
+    loc_transform_ = glGetUniformLocation(program_, "transform");
+    loc_color_ = glGetUniformLocation(program_, "color");
+    loc_atlas_tex_ = glGetUniformLocation(program_, "atlas_tex");
+    loc_glyph_bound_ = glGetUniformLocation(program_, "glyph_bound");
+    loc_glyph_uv_ = glGetUniformLocation(program_, "glyph_uv");
 
-    glGenVertexArrays(1, &tech.vao);
-    glGenBuffers(1, &tech.vbo);
+    glGenVertexArrays(1, &vao_);
+    glGenBuffers(1, &vbo_);
 
-    glBindVertexArray(tech.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, tech.vbo);
+    glBindVertexArray(vao_);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
     glEnableVertexAttribArray(0);
     glVertexAttribIPointer(0, 1, GL_INT, sizeof(Glyph), reinterpret_cast<GLvoid*>(offsetof(Glyph, id)));
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Glyph), reinterpret_cast<GLvoid*>(offsetof(Glyph, position)));
 
+    if (FT_Init_FreeType(&library_)) {
+        fprintf(stderr, "Failed to initialize Free Type library_.\n");
+        return false;
+    }
+
     return true;
 }
 
-bool make_font(Font* font, const char* path, int size)
+bool FontManager::load_font(Font* font, int size, const char* path)
 {
-    FT_Library library;
-    if (FT_Init_FreeType(&library)) {
-        fprintf(stderr, "Failed to initialize Free Type library.\n");
-        return false;
-    }
     FT_Face face;
-    if (FT_New_Face(library, path, 0, &face)) {
+    if (FT_New_Face(library_, path, 0, &face)) {
         fprintf(stderr, "Failed to load font \"%s\".\n", path);
         return false;
     }
@@ -175,23 +164,23 @@ bool make_font(Font* font, const char* path, int size)
 }
 
 
-void draw_text(
-        Font* font,
+void FontManager::draw_text(
+        const char* text,
+        const Font* font,
         const glm::mat4& transform,
         const glm::vec4& color,
-        const glm::vec2& position,
-        const char* text
+        const glm::vec2& position
         )
 {
-    glUseProgram(tech.program);
+    glUseProgram(program_);
 
-    glUniformMatrix4fv(tech.loc_transform, 1, GL_FALSE, glm::value_ptr(transform));
-    glUniform4fv(tech.loc_color, 1, glm::value_ptr(color));
+    glUniformMatrix4fv(loc_transform_, 1, GL_FALSE, glm::value_ptr(transform));
+    glUniform4fv(loc_color_, 1, glm::value_ptr(color));
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, font->atlas_tex);
-    glUniform1i(tech.loc_atlas_tex, 1);
-    glUniform4iv(tech.loc_glyph_bound, MAX_GLYPHS, reinterpret_cast<GLint*>(font->bound.data()));
-    glUniform4fv(tech.loc_glyph_uv, MAX_GLYPHS, reinterpret_cast<GLfloat*>(font->uv.data()));
+    glUniform1i(loc_atlas_tex_, 1);
+    glUniform4iv(loc_glyph_bound_, MAX_GLYPHS, reinterpret_cast<const GLint*>(font->bound.data()));
+    glUniform4fv(loc_glyph_uv_, MAX_GLYPHS, reinterpret_cast<const GLfloat*>(font->uv.data()));
 
     int text_len = strlen(text);
 
@@ -214,10 +203,10 @@ void draw_text(
         n_glyphs++;
     }
 
-    glBindVertexArray(tech.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, tech.vbo);
+    glBindVertexArray(vao_);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
     glBufferData(GL_ARRAY_BUFFER, sizeof(Glyph) * n_glyphs, glyphs.data(), GL_DYNAMIC_DRAW);
 
-    glUseProgram(tech.program);
+    glUseProgram(program_);
     glDrawArrays(GL_POINTS, 0, n_glyphs);
 }

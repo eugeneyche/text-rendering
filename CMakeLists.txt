@@ -22,7 +22,7 @@ add_executable(
     ${PROJECT_NAME}
     src/main.cpp
     src/shader.cpp
-    src/text.cpp
+    src/font.cpp
     )
 
 target_link_libraries(

@@ -1,4 +1,4 @@
-#include "text.hpp"
+#include "font.hpp"
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -72,14 +72,17 @@ int main()
         return -1;
     }
 
-    if (not init_text_rendering()) {
+    ShaderManager sm;
+    FontManager fm {&sm};
+
+    if (not fm.init()) {
         fprintf(stderr, "Failed to initialize text rendering.\n");
         return -1;
     }
 
     Font sans, papyrus;
-    if (    not make_font(&sans, "fonts/comic_sans.ttf", 48) or
-            not make_font(&papyrus, "fonts/papyrus.ttf", 32)
+    if (    not fm.load_font(&sans, 48, "fonts/comic_sans.ttf") or
+            not fm.load_font(&papyrus, 32, "fonts/papyrus.ttf")
             ) {
         return -1;
     }
@@ -105,35 +108,35 @@ int main()
     while (not glfwWindowShouldClose(window)) {
         glfwPollEvents();
         glClear(GL_COLOR_BUFFER_BIT);
-        draw_text(
+        fm.draw_text(
+            "Text Rendering is cool~~!",
             &sans, projection, 
             {0.f, 1.f, 1.f, 1.f},
-            {10.f, window_height - 60.f},
-            "Text Rendering is cool~~!"
+            {10.f, window_height - 60.f}
             );
-        draw_text(
+        fm.draw_text(
+            loren_ipsum,
             &papyrus, projection,
             {1.f, 0.f, 1.f, 1.f},
-            {10.f, window_height - 120.f},
-            loren_ipsum
+            {10.f, window_height - 120.f}
             );
-        draw_text(
+        fm.draw_text(
+            "wow~~",
             &sans, projection * make_2d_transform({200.f, 400.f}, 5.f * glfwGetTime()),
             glm::vec4{hue_to_color(-0.5f * glfwGetTime()), 1},
-            {-60.f, -10.f},
-            "wow~~"
+            {-60.f, -10.f}
             );
-        draw_text(
+        fm.draw_text(
+            "much truasre",
             &sans, projection * make_2d_transform({window_width - 300.f, 200.f}, -3.f * glfwGetTime()),
             glm::vec4{hue_to_color(glfwGetTime()), 1},
-            {-150.f, -10.f},
-            "much truasre"
+            {-150.f, -10.f}
             );
-        draw_text(
+        fm.draw_text(
+            "STOP THAT, SANS!",
             &papyrus, projection,
             {1.f, 0.f, 0.f, 1.f},
-            {10.f, 30.f},
-            "STOP THAT, SANS!"
+            {10.f, 30.f}
             );
         glfwSwapBuffers(window);
     }
